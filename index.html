@@ -1,0 +1,43 @@
+<html>
+  <head>
+    <title>p1</title>
+  </head>
+  <script src="https://d3js.org/d3.v4.min.js"></script>
+  <body>
+    <script>
+      function entityRow(d) {
+        return {
+          entity_id: d.entity_id,
+          name: d.entity_name,
+          category: d.category
+        };
+      }
+      function tweetRow(d) {
+        return {
+          tweet_id: d.tweet_id,
+          polarity: d.polarity
+        };
+      }
+      function timeRow(d) {
+        return {
+          tweet_id: d.tweet_id,
+          time: d.timestamp
+        };
+      }
+      d3.tsv("replab2013_entities.tsv", entityRow, function (error, data) {
+        entity_data = data
+        entity_data.forEach(function(d){
+          d3.tsv("labeled/"+d.entity_id+".tsv", tweetRow, function (error, data){
+            d['tweets'] = data
+          })
+
+          d3.tsv("tweet_info/"+d.entity_id+".tsv", timeRow, function (error, data){
+            d['times'] = data
+          })
+        })
+        console.log(entity_data)
+      })
+
+    </script>
+  </body>
+</html>
