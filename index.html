@@ -1,43 +1,91 @@
 <html>
   <head>
     <title>p1</title>
+    <link rel="stylesheet" type="text/css" href="styles/styles.css">
+    <script src="https://d3js.org/d3.v4.min.js"></script>
   </head>
-  <script src="https://d3js.org/d3.v4.min.js"></script>
+
   <body>
-    <script>
-      function entityRow(d) {
-        return {
-          entity_id: d.entity_id,
-          name: d.entity_name,
-          category: d.category
-        };
-      }
-      function tweetRow(d) {
-        return {
-          tweet_id: d.tweet_id,
-          polarity: d.polarity
-        };
-      }
-      function timeRow(d) {
-        return {
-          tweet_id: d.tweet_id,
-          time: d.timestamp
-        };
-      }
-      d3.tsv("replab2013_entities.tsv", entityRow, function (error, data) {
-        entity_data = data
-        entity_data.forEach(function(d){
-          d3.tsv("labeled/"+d.entity_id+".tsv", tweetRow, function (error, data){
-            d['tweets'] = data
-          })
+    <div id='wrapper'>
+      <br>
+      <h1>Title</h1>
+      <script>
+        function entityRow(d) {
+          return {
+            entity_id: d.entity_id,
+            name: d.entity_name,
+            category: d.category
+          };
+        }
+        function tweetRow(d) {
+          return {
+            tweet_id: d.tweet_id,
+            polarity: d.polarity
+          };
+        }
+        function timeRow(d) {
+          return {
+            tweet_id: d.tweet_id,
+            unixTime: d.timestamp,
+            time: Date(d.timestamp*1000)
+          };
+        }
 
-          d3.tsv("tweet_info/"+d.entity_id+".tsv", timeRow, function (error, data){
-            d['times'] = data
-          })
-        })
-        console.log(entity_data)
-      })
+        var wrapper = document.getElementById("wrapper");
+        var svg = d3.select(wrapper).append("svg");
+        svg.attr("width","100%").attr("height",750);
 
-    </script>
+        var svgWidth = document.getElementsByTagName("svg")[0].offsetWidth;
+
+        //var minTime = 1249351893;
+        var minTime = 1300000000;
+        var maxTime = 1348581639;
+        var xScale = d3.scaleLinear().domain([minTime,maxTime]).range([3,svgWidth-3]);
+        var xAxis = d3.axisBottom(xScale);
+        var plotXAxis = svg.append("g")
+          .attr("transform", "translate(0,100)")
+          .call(xAxis);
+
+        d3.tsv("replab2013_entities.tsv", entityRow, function(error, data) {
+          entity_data = data;
+
+          entity_data.forEach(function(d) {
+            d3.tsv("labeled/"+d.entity_id+".tsv", tweetRow, function(error, data) {
+              d['tweets'] = data;
+
+              var nTweets = d['tweets'].length;
+              var posCount = 0; negCount = 0;
+              for (i=0; i<nTweets; i++) {
+                if (d['tweets'][i].polarity == "POSITIVE") { posCount++; }
+                if (d['tweets'][i].polarity == "NEGATIVE") { negCount++; }
+              }
+              var avgPol = posCount/negCount;
+            });
+
+            d3.tsv("tweet_info/"+d.entity_id+".tsv", timeRow, function(error, data) {
+              d['times'] = data;
+
+              var nTweets = d['times'].length;
+              for (i=0; i<nTweets; i++) {
+                if (d.category == "automotive") { var fillColor = "red"; var catY = 15; }
+                if (d.category == "banking") { var fillColor = "green"; var catY = 30; }
+                if (d.category == "music") { var fillColor = "blue"; var catY = 45; }
+                if (d.category == "university") { var fillColor = "black"; var catY = 60; }
+
+                svg.append("circle").attr("r",3)
+                                    .attr("cx",xScale(d['times'][i].unixTime))
+                                    .attr("cy",catY)
+                                    .attr("fill", fillColor);
+              }
+            });
+          });
+          //console.log(entity_data)
+        });
+
+
+
+
+      </script>
+    </div>
   </body>
 </html>
