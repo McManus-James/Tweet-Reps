@@ -101,6 +101,11 @@
                 for (var i=0; i<d.tweets.length; i++) {
                   var t = d.tweets[i];
 
+                  // Convert polarity
+                  if (t.polarity == "POSITIVE") { var pol = 1; }
+                  if (t.polarity == "NEGATIVE") { var pol = -1; }
+                  if (t.polarity == "NEUTRAL" || t.polarity == "") { var pol = 0; }
+
                   // Convert data to y-axis
                   var fullDate = new Date(t.time);
                   var day = fullDate.getDate();
@@ -111,31 +116,33 @@
                   var date = year+"-"+month+"-"+day;
 
                   // Check for duplicate dates and iterate over existing values if found
-                  if (y.length == 0) { y.push({ date:date, count:1 }); }
+                  if (y.length == 0) { y.push({ date:date, count:1, polarity:pol }); }
                   for (u in y) {
                     if (y[u].date == date) {
                       y[u].count++;
+                      y[u].polarity+= pol;
                       break;
                     }
                     if (u == y.length-1) {
-                      y.push({ date:date, count:1 });
+                      y.push({ date:date, count:1, polarity:pol });
                     }
                   }
                 }
-
-                for (var j=0; j<y.length; j++) {
+                for (j in y) {
+                  y[j].polarity = y[j].polarity/y[j].count;
                   if (typeof y[j] != 'undefined') {
                     if (d.category == "automotive") { var fillColor = "gold"; }
                     if (d.category == "banking") { var fillColor = "lightseagreen"; }
                     if (d.category == "music") { var fillColor = "purple"; }
-                    if (d.category == "university") { var fillColor = "crimson" }
+                    if (d.category == "university") { var fillColor = "blue"; }
+                    if (y[j].polarity < 0) { var fillColor = "red"; }
 
                     svg.append("rect").attr("x", xScale(new Date(y[j].date))+xAxisDisplacement)
                                       .attr("y", yAxisDisplacement)
                                       .attr("height", yScale(y[j].count))
                                       .attr("width", svgWidth/rangeTime)
                                       .attr("fill", fillColor)
-                                      .attr("opacity", .2);
+                                      .attr("opacity", Math.abs(y[j].polarity));
                   }
                 }
               });
@@ -144,11 +151,15 @@
           // Display data
           entity_data = data;
           var scales = makeScales("All Companies");
+          var counter = 0;
           entity_data.forEach(function(d) {
-            showGraph(d, scales[0], scales[1], scales[2]);
+            if (counter%2 == 0) { // arbitrary data limitation
+              showGraph(d, scales[0], scales[1], scales[2]);
+            }
+            counter++;
           });
-          var scales = makeScales(entity_data[55].name);
-          showGraph(entity_data[57], scales[0], scales[1], scales[2]);
+          var scales = makeScales(entity_data[26].name);
+          showGraph(entity_data[26], scales[0], scales[1], scales[2]);
         });
 
 
