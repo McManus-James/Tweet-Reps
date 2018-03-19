@@ -1,0 +1,146 @@
+<html>
+  <head>
+    <title>p1</title>
+    <link rel="stylesheet" type="text/css" href="styles/styles.css">
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+  </head>
+
+  <body>
+    <div id='wrapper'>
+      <br>
+      <script>
+        function parseRow(d) {
+          return {
+            tweet_id: d.tweet_id,
+            polarity: d.polarity,
+            time: new Date(d.timestamp*1000)
+          }
+        }
+
+        var wrapper = document.getElementById("wrapper");
+        // Set up plot
+        var xAxisDisplacement = 75;
+        var yAxisDisplacement = 5;
+        var yHeight = 450;
+
+        //var minTime = 1249351893;
+        var minTime = new Date(1338163200*1000);
+        //var maxTime = new Date(1348581639*1000);
+        var maxTime = new Date(1344124800*1000);
+        //var rangeTime = (1348581639-1333238400)/60/60/24;
+        var rangeTime = (1344124800-1333238400)/60/60/24;
+
+        function makeScales(title) {
+          var title = d3.select(wrapper).append("h1")
+                                        .attr("x",0)
+                                        .attr("y",10)
+                                        .text(title);
+          var svg = d3.select(wrapper).append("svg");
+          svg.attr("width","100%")
+             .attr("height",550);
+          var svgWidth = document.getElementsByTagName("svg")[0];
+          svgWidth = svgWidth.getBoundingClientRect().width
+
+          // Set scales
+          var xScale = d3.scaleTime().domain([minTime,maxTime]).range([xAxisDisplacement,svgWidth]);
+          var xAxis = d3.axisBottom(xScale);
+          var plotXAxis = svg.append("g")
+            .attr("transform", "translate(0,"+(yHeight+yAxisDisplacement)+")")
+            .call(xAxis);
+          svg.append("text")
+             .attr("x", (svgWidth+xAxisDisplacement)/2)
+             .attr("y", (yHeight+yAxisDisplacement+50))
+             .style("text-anchor","middle")
+             .text("Date");
+
+          var yScale = d3.scaleLinear().domain([100,1]).range([1, yHeight]);
+          var yAxis = d3.axisLeft(yScale);
+          var plotYAxis = svg.append("g")
+            .attr("transform", "translate("+xAxisDisplacement+","+yAxisDisplacement+")")
+            .call(yAxis);
+          svg.append("text")
+             .attr("transform", "rotate(-90)")
+             .attr("x", 0 - (yHeight/2))
+             .attr("y", 25)
+             .style("text-anchor","middle")
+             .text("Number of Tweets");
+
+          return [xScale,yScale,svg];
+        }
+
+        function convertTime(t) {
+            var fullDate = new Date(t.time);
+            var day = fullDate.getDate();
+            if (String(day).length< 2) { day = "0"+day; }
+            var month = fullDate.getMonth()+1;
+            if (String(month).length< 2) { month = "0"+month; }
+            var year = fullDate.getFullYear();
+            var date = year+"-"+month+"-"+day;
+            return (date);
+          }
+
+
+        function dateArray(d) {
+             var y = [];
+             for (var i=0; i<d.length; i++) {
+               var t = d[i];
+               if (new Date(t.time) < minTime || new Date(t.time) > maxTime) { continue; } // skip data before or after time period
+
+               // Convert polarity to numerical value
+               if (t.polarity == "POSITIVE") { var pol = 1; }
+               if (t.polarity == "NEGATIVE") { var pol = -1; }
+               if (t.polarity == "NEUTRAL" || t.polarity == "") { var pol = 0; }
+
+               // Check for duplicate dates and iterate over existing values if found
+               var date = convertTime(t);
+               if (y.length == 0) { y.push({ date:date, count:1, polarity:pol}); }
+               for (u in y) {
+                 if (y[u].date == date) {
+                   y[u].count++;
+                   y[u].polarity+= pol;
+                   break;
+                 }
+                 if (u == y.length-1) {
+                   y.push({ date:date, count:1, polarity:pol});
+                 }
+               }
+             }
+             d['dates'] = y;
+          }
+
+          function showGraph(data, scale){
+            var xScale = scale[0];
+            var yScale = scale[1];
+            var svg = scale[2];
+            var svgWidth = document.getElementsByTagName("svg")[0];
+            svgWidth = svgWidth.getBoundingClientRect().width;
+
+            var fillColor = "green";
+            if (data.polarity < 0) {
+              fillColor = "red"
+            }
+            var op = data.polarity/data.count;
+
+            console.log(data);
+            svg.append("rect").attr("x", xScale(new Date(data.date)))
+                              .attr("y", yHeight - yScale(data.count) + yAxisDisplacement)
+                              .attr("height", yScale(data.count))
+                              .attr("width", (svgWidth/rangeTime)+6)
+                              .attr("fill", fillColor)
+                              .attr("opacity", op);
+          }
+
+        d3.csv("labeled/RL2013D01E001.csv", parseRow, function(error, data){
+          bmwScale = makeScales("BMW");
+          dateArray(data);
+          data.dates.forEach(function(d){
+            showGraph(d, bmwScale)
+          });
+        });
+
+
+
+      </script>
+    </div>
+  </body>
+</html>

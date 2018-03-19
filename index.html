@@ -1,0 +1,232 @@
+<html>
+  <head>
+    <title>p1</title>
+    <link rel="stylesheet" type="text/css" href="styles/styles.css">
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+  </head>
+
+  <body>
+    <div id='wrapper'>
+      <br>
+      <script>
+        function entityRow(d) {
+          return {
+            entity_id: d.entity_id,
+            name: d.entity_name,
+            category: d.category
+          }
+        }
+        function polRow(d, array) {
+          return {
+            tweet_id: d.tweet_id,
+            polarity: d.polarity
+          }
+        }
+        function timeRow(d, array) {
+          return {
+            tweet_id: d.tweet_id,
+            unixTime: d.timestamp,
+            time: new Date(d.timestamp*1000)
+          }
+        }
+
+        function mergeTweets(d) {
+          console.log("merging")
+          var tweets = [];
+          for (var i=0; i<d.polarities.length; i++) {
+            var tweet = {
+                          polarity: d.polarities[i],
+                          time: d.times[i]
+                        }
+            tweets.push(tweet)
+          }
+          console.log(tweets)
+          d['tweets'] = tweets
+        }
+
+        // function searchByTweetId(id, array) {
+        //   for (var i= 0; i< array.length; i++) {
+        //     if (array[i].tweet_id == id) {
+        //       return array[i];
+        //     }
+        //   }
+        // }
+
+        var wrapper = document.getElementById("wrapper");
+
+        // Set up plot
+        var xAxisDisplacement = 75;
+        var yAxisDisplacement = 5;
+        var yHeight = 450;
+
+        //var minTime = 1249351893;
+        var minTime = new Date(1338163200*1000);
+        //var maxTime = new Date(1348581639*1000);
+        var maxTime = new Date(1344124800*1000);
+        //var rangeTime = (1348581639-1333238400)/60/60/24;
+        var rangeTime = (1344124800-1333238400)/60/60/24;
+
+        function makeScales(title) {
+          var title = d3.select(wrapper).append("h1")
+                                        .attr("x",0)
+                                        .attr("y",10)
+                                        .text(title);
+          var svg = d3.select(wrapper).append("svg");
+          svg.attr("width","100%")
+             .attr("height",550);
+          var svgWidth = document.getElementsByTagName("svg")[0];
+          svgWidth = svgWidth.getBoundingClientRect().width
+
+          // Set scales
+          var xScale = d3.scaleTime().domain([minTime,maxTime]).range([xAxisDisplacement,svgWidth]);
+          var xAxis = d3.axisBottom(xScale);
+          var plotXAxis = svg.append("g")
+            .attr("transform", "translate(0,"+(yHeight+yAxisDisplacement)+")")
+            .call(xAxis);
+          svg.append("text")
+             .attr("x", (svgWidth+xAxisDisplacement)/2)
+             .attr("y", (yHeight+yAxisDisplacement+50))
+             .style("text-anchor","middle")
+             .text("Date");
+
+          var yScale = d3.scaleLog().domain([1,1000]).range([1,yHeight]);
+          var yAxis = d3.axisLeft(yScale);
+          var plotYAxis = svg.append("g")
+            .attr("transform", "translate("+xAxisDisplacement+","+yAxisDisplacement+")")
+            .call(yAxis);
+          svg.append("text")
+             .attr("transform", "rotate(-90)")
+             .attr("x", 0 - (yHeight/2))
+             .attr("y", 25)
+             .style("text-anchor","middle")
+             .text("Number of Tweets");
+
+          return [xScale,yScale,svg];
+        }
+
+        function showGraph(d, xScale, yScale, svg) {
+          var svgWidth = document.getElementsByTagName("svg")[0].offsetWidth;
+          y = [];
+          // console.log(d);
+          // console.log(d.tweets);
+          for (var i=0; i<d.tweets.length; i++) {
+            var tweet = d.tweets[i];
+
+            // Convert polarity
+            var pol = 0;
+            if (tweet.polarity == "POSITIVE") {
+              var pol = 1;
+            }
+            else if (tweet.polarity == "NEGATIVE") {
+              var pol = -1;
+            }
+
+            // Convert data to y-axis
+            var fullDate = new Date(t.time);
+            var day = fullDate.getDate();
+            if (String(day).length< 2) { day = "0"+day; }
+            var month = fullDate.getMonth()+1;
+            if (String(month).length< 2) { month = "0"+month; }
+            var year = fullDate.getFullYear();
+            var date = year+"-"+month+"-"+day;
+
+            // Check for duplicate dates and iterate over existing values if found
+            if (y.length == 0) {
+              y.push({ date:date, count:1, polarity:pol });
+            }
+
+            for (u in y) {
+              if (y[u].date == date) {
+                y[u].count++;
+                y[u].polarity+= pol;
+                break;
+              }
+              if (u == y.length-1) {
+                y.push({ date:date, count:1, polarity:pol });
+              }
+            }
+          }
+          for (j in y) {
+            y[j].polarity = y[j].polarity/y[j].count;
+
+            if (typeof y[j] != 'undefined') {
+              if (d.category == "automotive") { var fillColor = "gold"; }
+              if (d.category == "banking") { var fillColor = "lightseagreen"; }
+              if (d.category == "music") { var fillColor = "purple"; }
+              if (d.category == "university") { var fillColor = "blue"; }
+              if (y[j].polarity < 0) { var fillColor = "red"; }
+              var setPol = Math.abs(y[j].polarity);
+              if (setPol == 0) {
+                fillColor = "#b2b2b2";
+                setPol = .5;
+              }
+
+              svg.append("rect").attr("x", xScale(new Date(y[j].date))+xAxisDisplacement)
+                                .attr("y", yAxisDisplacement)
+                                .attr("height", yScale(y[j].count))
+                                .attr("width", (svgWidth/rangeTime)+6)
+                                .attr("fill", fillColor)
+                                .attr("opacity", setPol);
+            }
+          }
+        }
+
+        d3.tsv("replab2013_entities.tsv", entityRow, function(error, data) {
+          entity_data = data;
+
+          // Make scales for each graph
+          var scales = makeScales("All Categories");
+          var scalesFin = makeScales("Finance Companies");
+          var scalesMusic = makeScales("Musicians");
+          var scalesUni = makeScales("Universities");
+          var scalesAuto = makeScales("Automotive Companies")
+
+          var counter = 0;
+          entity_data.forEach(function(d) {
+            //merge tweet polarity and times
+            var polarity = [];
+            var times = [];
+            d3.queue()
+              .defer(d3.tsv, "labeled/"+d.entity_id+".tsv", polRow, function(data) {
+                d['polarities'] = data;
+                console.log("1");
+              })
+              .defer(d3.tsv, "tweet_info/"+d.entity_id+".tsv", timeRow, function(data) {
+                d['times'] = data;
+                console.log("2");
+              })
+              .defer(mergeTweets, d)
+              .awaitAll(function(error){
+                // Display data
+                if (counter%2 == 0) { // arbitrary data limitation
+                  showGraph(d, scales[0], scales[1], scales[2]);
+                }
+
+                if (d.category == "banking") {
+                  showGraph(d, scalesFin[0], scalesFin[1], scalesFin[2]);
+                }
+                else if (d.category == "music") {
+                  showGraph(d, scalesMusic[0], scalesMusic[1], scalesMusic[2]);
+                }
+                else if (d.category == "university") {
+                  showGraph(d, scalesUni[0], scalesUni[1], scalesUni[2]);
+                }
+                else if (d.category == "automotive") {
+                  showGraph(d, scalesAuto[0], scalesAuto[1], scalesAuto[2]);
+                }
+
+                counter++;
+              });
+          });
+
+          var scales = makeScales(entity_data[26].name);
+          showGraph(entity_data[26], scales[0], scales[1], scales[2]);
+
+        });
+
+
+
+      </script>
+    </div>
+  </body>
+</html>
